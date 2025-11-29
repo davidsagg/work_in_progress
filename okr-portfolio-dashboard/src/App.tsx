@@ -1,19 +1,33 @@
 import { useState } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppProvider } from './contexts/AppContext';
+import { LoginPage } from './components/Auth/LoginPage';
 import { Layout } from './components/Layout/Layout';
 import { Dashboard } from './components/Dashboard/Dashboard';
 import { OKRsList } from './components/OKRs/OKRsList';
 import { Timeline } from './components/Timeline/Timeline';
 import { Portfolio } from './components/Portfolio/Portfolio';
-import { useDemoData } from './hooks/useDemoData';
 
 type Page = 'dashboard' | 'okrs' | 'timeline' | 'portfolio';
 
 function AppContent() {
+  const { isAuthenticated, isLoading } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
 
-  // Load demo data on first load
-  useDemoData();
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {
@@ -39,9 +53,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthProvider>
   );
 }
 
