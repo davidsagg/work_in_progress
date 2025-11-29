@@ -1,186 +1,193 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Project, Objective, Initiative, Milestone, RedFlag } from '../types';
+import { projectsAPI, objectivesAPI, initiativesAPI } from '../services/api';
 
 interface AppContextType {
   projects: Project[];
   objectives: Objective[];
   initiatives: Initiative[];
-  addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProject: (id: string, updates: Partial<Project>) => void;
-  deleteProject: (id: string) => void;
-  addObjective: (objective: Omit<Objective, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateObjective: (id: string, updates: Partial<Objective>) => void;
-  deleteObjective: (id: string) => void;
-  addInitiative: (initiative: Omit<Initiative, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateInitiative: (id: string, updates: Partial<Initiative>) => void;
-  deleteInitiative: (id: string) => void;
-  addMilestone: (projectId: string, milestone: Omit<Milestone, 'id' | 'projectId'>) => void;
-  toggleMilestone: (projectId: string, milestoneId: string) => void;
-  addRedFlag: (projectId: string, redFlag: Omit<RedFlag, 'id' | 'projectId'>) => void;
-  resolveRedFlag: (projectId: string, redFlagId: string) => void;
+  isLoading: boolean;
+  refresh: () => Promise<void>;
+  addProject: (project: any) => Promise<void>;
+  updateProject: (id: string, updates: any) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  addObjective: (objective: any) => Promise<void>;
+  updateObjective: (id: string, updates: any) => Promise<void>;
+  deleteObjective: (id: string) => Promise<void>;
+  addInitiative: (initiative: any) => Promise<void>;
+  updateInitiative: (id: string, updates: any) => Promise<void>;
+  deleteInitiative: (id: string) => Promise<void>;
+  addMilestone: (projectId: string, milestone: any) => Promise<void>;
+  toggleMilestone: (projectId: string, milestoneId: string) => Promise<void>;
+  addRedFlag: (projectId: string, redFlag: any) => Promise<void>;
+  resolveRedFlag: (projectId: string, redFlagId: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
-
-const STORAGE_KEY = 'okr-portfolio-data';
-
-interface StorageData {
-  projects: Project[];
-  objectives: Objective[];
-  initiatives: Initiative[];
-}
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [initiatives, setInitiatives] = useState<Initiative[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const data: StorageData = JSON.parse(stored);
-        setProjects(data.projects.map(p => ({
-          ...p,
-          startDate: new Date(p.startDate),
-          targetEndDate: p.targetEndDate ? new Date(p.targetEndDate) : undefined,
-          actualEndDate: p.actualEndDate ? new Date(p.actualEndDate) : undefined,
-          createdAt: new Date(p.createdAt),
-          updatedAt: new Date(p.updatedAt),
-          milestones: p.milestones.map(m => ({ ...m, date: new Date(m.date) })),
-          redFlags: p.redFlags.map(r => ({ ...r, createdAt: new Date(r.createdAt) })),
-        })));
-        setObjectives(data.objectives.map(o => ({
-          ...o,
-          createdAt: new Date(o.createdAt),
-          updatedAt: new Date(o.updatedAt),
-        })));
-        setInitiatives(data.initiatives.map(i => ({
-          ...i,
-          createdAt: new Date(i.createdAt),
-          updatedAt: new Date(i.updatedAt),
-        })));
-      } catch (error) {
-        console.error('Failed to load data from localStorage:', error);
-      }
+  const refresh = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [projectsRes, objectivesRes, initiativesRes] = await Promise.all([
+        projectsAPI.getAll(),
+        objectivesAPI.getAll(),
+        initiativesAPI.getAll(),
+      ]);
+
+      setProjects(projectsRes.data);
+      setObjectives(objectivesRes.data);
+      setInitiatives(initiativesRes.data);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // Save data to localStorage whenever it changes
+  // Load data on mount
   useEffect(() => {
-    const data: StorageData = { projects, objectives, initiatives };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [projects, objectives, initiatives]);
-
-  const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    refresh();
+  }, [refresh]);
 
   // Project operations
-  const addProject = (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newProject: Project = {
-      ...project,
-      id: generateId(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setProjects([...projects, newProject]);
+  const addProject = async (project: any) => {
+    try {
+      await projectsAPI.create(project);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to add project:', error);
+      throw error;
+    }
   };
 
-  const updateProject = (id: string, updates: Partial<Project>) => {
-    setProjects(projects.map(p =>
-      p.id === id ? { ...p, ...updates, updatedAt: new Date() } : p
-    ));
+  const updateProject = async (id: string, updates: any) => {
+    try {
+      await projectsAPI.update(id, updates);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to update project:', error);
+      throw error;
+    }
   };
 
-  const deleteProject = (id: string) => {
-    setProjects(projects.filter(p => p.id !== id));
+  const deleteProject = async (id: string) => {
+    try {
+      await projectsAPI.delete(id);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      throw error;
+    }
   };
 
   // Objective operations
-  const addObjective = (objective: Omit<Objective, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newObjective: Objective = {
-      ...objective,
-      id: generateId(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setObjectives([...objectives, newObjective]);
+  const addObjective = async (objective: any) => {
+    try {
+      await objectivesAPI.create(objective);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to add objective:', error);
+      throw error;
+    }
   };
 
-  const updateObjective = (id: string, updates: Partial<Objective>) => {
-    setObjectives(objectives.map(o =>
-      o.id === id ? { ...o, ...updates, updatedAt: new Date() } : o
-    ));
+  const updateObjective = async (id: string, updates: any) => {
+    try {
+      await objectivesAPI.update(id, updates);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to update objective:', error);
+      throw error;
+    }
   };
 
-  const deleteObjective = (id: string) => {
-    setObjectives(objectives.filter(o => o.id !== id));
+  const deleteObjective = async (id: string) => {
+    try {
+      await objectivesAPI.delete(id);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to delete objective:', error);
+      throw error;
+    }
   };
 
   // Initiative operations
-  const addInitiative = (initiative: Omit<Initiative, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newInitiative: Initiative = {
-      ...initiative,
-      id: generateId(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setInitiatives([...initiatives, newInitiative]);
+  const addInitiative = async (initiative: any) => {
+    try {
+      await initiativesAPI.create(initiative);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to add initiative:', error);
+      throw error;
+    }
   };
 
-  const updateInitiative = (id: string, updates: Partial<Initiative>) => {
-    setInitiatives(initiatives.map(i =>
-      i.id === id ? { ...i, ...updates, updatedAt: new Date() } : i
-    ));
+  const updateInitiative = async (id: string, updates: any) => {
+    try {
+      await initiativesAPI.update(id, updates);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to update initiative:', error);
+      throw error;
+    }
   };
 
-  const deleteInitiative = (id: string) => {
-    setInitiatives(initiatives.filter(i => i.id !== id));
+  const deleteInitiative = async (id: string) => {
+    try {
+      await initiativesAPI.delete(id);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to delete initiative:', error);
+      throw error;
+    }
   };
 
   // Milestone operations
-  const addMilestone = (projectId: string, milestone: Omit<Milestone, 'id' | 'projectId'>) => {
-    const newMilestone: Milestone = {
-      ...milestone,
-      id: generateId(),
-      projectId,
-    };
-    updateProject(projectId, {
-      milestones: [...(projects.find(p => p.id === projectId)?.milestones || []), newMilestone],
-    });
+  const addMilestone = async (projectId: string, milestone: any) => {
+    try {
+      await projectsAPI.addMilestone(projectId, milestone);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to add milestone:', error);
+      throw error;
+    }
   };
 
-  const toggleMilestone = (projectId: string, milestoneId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      const updatedMilestones = project.milestones.map(m =>
-        m.id === milestoneId ? { ...m, completed: !m.completed } : m
-      );
-      updateProject(projectId, { milestones: updatedMilestones });
+  const toggleMilestone = async (projectId: string, milestoneId: string) => {
+    try {
+      await projectsAPI.toggleMilestone(projectId, milestoneId);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to toggle milestone:', error);
+      throw error;
     }
   };
 
   // RedFlag operations
-  const addRedFlag = (projectId: string, redFlag: Omit<RedFlag, 'id' | 'projectId'>) => {
-    const newRedFlag: RedFlag = {
-      ...redFlag,
-      id: generateId(),
-      projectId,
-      createdAt: new Date(),
-    };
-    updateProject(projectId, {
-      redFlags: [...(projects.find(p => p.id === projectId)?.redFlags || []), newRedFlag],
-    });
+  const addRedFlag = async (projectId: string, redFlag: any) => {
+    try {
+      await projectsAPI.addRedFlag(projectId, redFlag);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to add red flag:', error);
+      throw error;
+    }
   };
 
-  const resolveRedFlag = (projectId: string, redFlagId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      const updatedRedFlags = project.redFlags.map(r =>
-        r.id === redFlagId ? { ...r, resolved: true } : r
-      );
-      updateProject(projectId, { redFlags: updatedRedFlags });
+  const resolveRedFlag = async (projectId: string, redFlagId: string) => {
+    try {
+      await projectsAPI.resolveRedFlag(projectId, redFlagId);
+      await refresh();
+    } catch (error) {
+      console.error('Failed to resolve red flag:', error);
+      throw error;
     }
   };
 
@@ -190,6 +197,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         projects,
         objectives,
         initiatives,
+        isLoading,
+        refresh,
         addProject,
         updateProject,
         deleteProject,

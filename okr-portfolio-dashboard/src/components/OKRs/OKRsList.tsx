@@ -4,11 +4,13 @@ import { useApp } from '../../contexts/AppContext';
 import { StatusBadge } from '../common/StatusBadge';
 import { CategoryBadge } from '../common/CategoryBadge';
 import { ProgressBar } from '../common/ProgressBar';
+import { ObjectiveForm } from '../Forms/ObjectiveForm';
 import type { ProjectCategory } from '../../types';
 
 export const OKRsList: React.FC = () => {
-  const { objectives, deleteObjective } = useApp();
+  const { objectives, deleteObjective, addObjective } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<ProjectCategory | 'all'>('all');
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const filteredObjectives = selectedCategory === 'all'
     ? objectives
@@ -25,6 +27,27 @@ export const OKRsList: React.FC = () => {
     other: 'Outro',
   };
 
+  const handleCreate = async (data: any) => {
+    try {
+      await addObjective(data);
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Failed to create objective:', error);
+      alert('Erro ao criar OKR. Por favor, tente novamente.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este OKR?')) {
+      try {
+        await deleteObjective(id);
+      } catch (error) {
+        console.error('Failed to delete objective:', error);
+        alert('Erro ao excluir OKR. Por favor, tente novamente.');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -34,7 +57,10 @@ export const OKRsList: React.FC = () => {
             Gerencie seus objetivos e resultados-chave
           </p>
         </div>
-        <button className="btn-primary flex items-center gap-2">
+        <button
+          onClick={() => setIsFormOpen(true)}
+          className="btn-primary flex items-center gap-2"
+        >
           <Plus className="w-5 h-5" />
           Novo OKR
         </button>
@@ -67,7 +93,10 @@ export const OKRsList: React.FC = () => {
           <p className="text-gray-600 mb-4">
             Comece criando seu primeiro objetivo
           </p>
-          <button className="btn-primary inline-flex items-center gap-2">
+          <button
+            onClick={() => setIsFormOpen(true)}
+            className="btn-primary inline-flex items-center gap-2"
+          >
             <Plus className="w-5 h-5" />
             Criar OKR
           </button>
@@ -105,11 +134,7 @@ export const OKRsList: React.FC = () => {
                     <Edit2 className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm('Tem certeza que deseja excluir este OKR?')) {
-                        deleteObjective(objective.id);
-                      }
-                    }}
+                    onClick={() => handleDelete(objective.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Excluir"
                   >
@@ -160,6 +185,12 @@ export const OKRsList: React.FC = () => {
           ))}
         </div>
       )}
+
+      <ObjectiveForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleCreate}
+      />
     </div>
   );
 };
