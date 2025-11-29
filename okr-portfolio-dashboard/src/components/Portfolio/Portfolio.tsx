@@ -4,15 +4,19 @@ import { useApp } from '../../contexts/AppContext';
 import { StatusBadge } from '../common/StatusBadge';
 import { CategoryBadge } from '../common/CategoryBadge';
 import { ProgressBar } from '../common/ProgressBar';
+import { ProjectForm } from '../Forms/ProjectForm';
+import { InitiativeForm } from '../Forms/InitiativeForm';
 import type { ProjectCategory, ProjectStatus } from '../../types';
 
 type ViewMode = 'projects' | 'initiatives';
 
 export const Portfolio: React.FC = () => {
-  const { projects, initiatives, deleteProject, deleteInitiative } = useApp();
+  const { projects, initiatives, addProject, addInitiative, deleteProject, deleteInitiative } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('projects');
   const [selectedCategory, setSelectedCategory] = useState<ProjectCategory | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<ProjectStatus | 'all'>('all');
+  const [isProjectFormOpen, setIsProjectFormOpen] = useState(false);
+  const [isInitiativeFormOpen, setIsInitiativeFormOpen] = useState(false);
 
   const filteredProjects = useMemo(() => {
     let filtered = projects;
@@ -66,7 +70,10 @@ export const Portfolio: React.FC = () => {
             Gerencie seus projetos e iniciativas
           </p>
         </div>
-        <button className="btn-primary flex items-center gap-2">
+        <button
+          onClick={() => viewMode === 'projects' ? setIsProjectFormOpen(true) : setIsInitiativeFormOpen(true)}
+          className="btn-primary flex items-center gap-2"
+        >
           <Plus className="w-5 h-5" />
           {viewMode === 'projects' ? 'Novo Projeto' : 'Nova Iniciativa'}
         </button>
@@ -155,6 +162,34 @@ export const Portfolio: React.FC = () => {
       ) : (
         <InitiativesGrid initiatives={filteredInitiatives} onDelete={deleteInitiative} />
       )}
+
+      <ProjectForm
+        isOpen={isProjectFormOpen}
+        onClose={() => setIsProjectFormOpen(false)}
+        onSubmit={async (data) => {
+          try {
+            await addProject(data);
+            setIsProjectFormOpen(false);
+          } catch (error) {
+            console.error('Failed to create project:', error);
+            alert('Erro ao criar projeto.');
+          }
+        }}
+      />
+
+      <InitiativeForm
+        isOpen={isInitiativeFormOpen}
+        onClose={() => setIsInitiativeFormOpen(false)}
+        onSubmit={async (data) => {
+          try {
+            await addInitiative(data);
+            setIsInitiativeFormOpen(false);
+          } catch (error) {
+            console.error('Failed to create initiative:', error);
+            alert('Erro ao criar iniciativa.');
+          }
+        }}
+      />
     </div>
   );
 };
